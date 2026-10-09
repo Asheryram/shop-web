@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shop</title>
+<!-- Written at container start by the platform: API_URL, APP_ENV, GIT_BRANCH… (never secrets) -->
+<script src="/env.js"></script>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1d2330; }
+  h1 { margin-bottom: 4px; } .sub { color: #667085; margin-top: 0; }
+  .card { border: 1px solid #e4e7ec; border-radius: 10px; padding: 14px 18px; margin: 16px 0; }
+  .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f2f4f7; }
+  .row:last-child { border-bottom: 0; }
+  code { background: #f2f4f7; padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  .bad { color: #f04438; } .muted { color: #667085; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>Shop</h1>
+<p class="sub">frontend <code id="env"></code> on branch <code id="branch"></code></p>
+
+<div class="card"><b>Products</b><div id="products" class="muted">loading…</div></div>
+
+<div class="card muted" id="wiring">
+  API: <code id="api"></code><br>
+  Backend: <span id="backend">…</span>
+</div>
+<p class="muted">Network error? Open the API URL once in this browser and accept its certificate (self-signed locally).</p>
+
+<script>
+  const E = window.__ENV__ || {};
+  const $ = id => document.getElementById(id);
+  $('env').textContent = E.APP_ENV || '—';
+  $('branch').textContent = E.GIT_BRANCH || '—';
+  $('api').textContent = E.API_URL || '(none)';
+
+  if (!E.API_URL) {
+    $('products').innerHTML = '<span class="bad">No API_URL — is shop-api deployed?</span>';
+  } else {
+    fetch(E.API_URL + '/api/products').then(r => r.json()).then(items => {
+      $('products').innerHTML = items.map(p =>
+        `<div class="row"><span>${p.name}</span><span>€ ${p.price.toFixed(2)}</span></div>`).join('');
+    }).catch(e => $('products').innerHTML = `<span class="bad">${e.message}</span>`);
+
+    fetch(E.API_URL + '/').then(r => r.json()).then(b => {
+      $('backend').innerHTML = `shop-api ${b.version} · env <code>${b.env}</code> · branch <code>${b.branch}</code>`
+        + ` · database <code>${b.database.ok ? b.database.name : 'ERROR'}</code>`;
+    }).catch(() => $('backend').innerHTML = '<span class="bad">unreachable</span>');
+  }
+</script>
+</body>
+</html>
