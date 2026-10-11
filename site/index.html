@@ -143,6 +143,14 @@
     font: inherit;
     cursor: pointer;
   }
+  .auth-form .auth-mode-toggle {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    text-align: left;
+    text-decoration: underline;
+  }
   .auth-form button:disabled, .auth-session button:disabled { opacity: .6; cursor: wait; }
   .auth-message { min-height: 20px; margin-top: 10px; font-size: 12px; color: var(--muted); }
   .auth-message.error { color: var(--warn); }
@@ -306,7 +314,11 @@
           <label for="login-password">Password
             <input id="login-password" name="password" type="password" autocomplete="current-password" required>
           </label>
+          <label id="confirm-password-field" for="confirm-password" hidden>Confirm password
+            <input id="confirm-password" name="confirm-password" type="password" autocomplete="new-password" disabled>
+          </label>
           <button id="login-button" type="submit">Sign in</button>
+          <button class="auth-mode-toggle" id="auth-mode-toggle" type="button">Need an account? Create one</button>
         </form>
         <div class="auth-session" id="auth-session" hidden>
           <span id="signed-in-customer"></span>
@@ -324,6 +336,7 @@
   const $ = id => document.getElementById(id);
   const API_BASE = (E.API_URL || '').replace(/\/+$/, '');
   const loginPage = window.location.pathname.replace(/\/+$/, '') === '/login';
+  let authMode = 'login';
   $('shop-view').hidden = loginPage;
   $('login-view').hidden = !loginPage;
   $('account-link').hidden = loginPage;
@@ -332,6 +345,25 @@
   $('env-badge').textContent    = 'env: '    + (E.APP_ENV    || '—');
   $('branch-badge').textContent = 'branch: ' + (E.GIT_BRANCH || '—');
   $('api').textContent          = E.API_URL  || '(none)';
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    const registering = mode === 'register';
+    $('auth-title').textContent = registering ? 'CREATE CUSTOMER ACCOUNT' : 'CUSTOMER SIGN IN';
+    $('login-button').textContent = registering ? 'Create account' : 'Sign in';
+    $('auth-mode-toggle').textContent = registering
+      ? 'Already have an account? Sign in'
+      : 'Need an account? Create one';
+    $('confirm-password-field').hidden = !registering;
+    $('confirm-password').disabled = !registering;
+    $('confirm-password').required = registering;
+    $('login-password').autocomplete = registering ? 'new-password' : 'current-password';
+    $('login-password').minLength = registering ? 12 : 0;
+    $('auth-message').textContent = registering
+      ? 'Create an account with a password of at least 12 characters.'
+      : 'Sign in with your customer account.';
+    $('auth-message').className = 'auth-message';
+  }
 
   function showSignedOut(message, isError = false) {
     $('account-link').textContent = 'Sign in';
@@ -391,6 +423,11 @@
 
   if (loginPage) $('login-form').addEventListener('submit', async event => {
     event.preventDefault();
+    const registering = authMode === 'register';
+    if (registering && $('login-password').value !== $('confirm-password').value) {
+      showSignedOut('The passwords do not match. Please try again.', true);
+      return;
+    }
     const button = $('login-button');
     const message = $('auth-message');
     button.disabled = true;
@@ -399,7 +436,9 @@
     message.textContent = 'Checking credentials…';
     message.className = 'auth-message';
     try {
-      const { response, payload } = await readAuthResponse(await fetch(API_BASE + '/api/auth/login', {
+      const { response, payload } = await readAuthResponse(await fetch(
+        API_BASE + (registering ? '/api/auth/register' : '/api/auth/login'),
+        {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -408,21 +447,36 @@
           password: $('login-password').value
         })
       }));
-      if (response.status === 401) {
+      if (registering && response.status === 409) {
+        showSignedOut('An account with this email already exists. Sign in instead.', true);
+      } else if (!registering && response.status === 401) {
         showSignedOut('Invalid email or password. Please try again.', true);
       } else if (!response.ok) {
-        showSignedOut('Sign-in is temporarily unavailable. Please try again.', true);
+        showSignedOut(
+          registering ? 'Account creation is temporarily unavailable. Please try again.' :
+            'Sign-in is temporarily unavailable. Please try again.',
+          true
+        );
       } else if (payload.authenticated && payload.customer && typeof payload.customer.email === 'string') {
         $('login-password').value = '';
+        $('confirm-password').value = '';
         showSignedIn(payload.customer);
       } else {
-        showSignedOut('Sign-in could not be completed. Please try again.', true);
+        showSignedOut(
+          registering ? 'Account creation could not be completed. Please try again.' :
+            'Sign-in could not be completed. Please try again.',
+          true
+        );
       }
     } catch {
       showSignedOut('Could not reach the authentication service. Check your connection and try again.', true);
     } finally {
       button.disabled = false;
     }
+  });
+
+  if (loginPage) $('auth-mode-toggle').addEventListener('click', () => {
+    setAuthMode(authMode === 'login' ? 'register' : 'login');
   });
 
   if (loginPage) $('logout-button').addEventListener('click', async () => {
