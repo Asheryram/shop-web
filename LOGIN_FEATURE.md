@@ -6,7 +6,7 @@ Let a customer sign in to the shop website with an existing account.
 
 ## Frontend feature
 
-Add a customer-facing login experience to `shop-web`.
+Add a dedicated customer-facing login page at `/login` to `shop-web`, reachable from the shop header.
 
 ## Expected behavior
 
@@ -35,3 +35,5 @@ The backend owns its feature definition and authentication implementation. Agree
 The website uses the API's `POST /api/auth/login` endpoint with JSON `{ "email": "...", "password": "..." }` and sends browser credentials with `credentials: "include"`. A successful response identifies the customer as `{ "authenticated": true, "customer": { "id": 1, "email": "..." } }`; invalid credentials return HTTP 401 with a generic message. The API maintains an HttpOnly, Secure, SameSite=None session cookie, so the website does not read, store, or assume a token format.
 
 On page load the website calls `GET /api/auth/session` to restore the state. It signs out through `POST /api/auth/logout`. The API must have `WEB_ORIGIN` configured to this site's exact HTTPS origin and both services must use HTTPS for cookie authentication.
+
+The shop header links to the standalone `/login` page. The SPA server's existing fallback serves the app shell for that route; the page then displays the login experience separately from the product dashboard.

@@ -76,6 +76,14 @@
 
   .badge.env  { border-color: var(--accent);  color: var(--accent); }
   .badge.branch { border-color: #bc8cff; color: #bc8cff; }
+  .account-link {
+    border: 1px solid var(--accent);
+    border-radius: 5px;
+    padding: 6px 10px;
+    color: var(--accent);
+    text-decoration: none;
+    white-space: nowrap;
+  }
 
   /* ── Prompt line ── */
   .prompt {
@@ -141,6 +149,8 @@
   .auth-message.success { color: var(--accent2); }
   .auth-session { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .auth-session[hidden], .auth-form[hidden] { display: none; }
+  .back-link { display: inline-block; margin-bottom: 16px; color: var(--accent); }
+  #login-view[hidden], #shop-view[hidden] { display: none; }
 
   /* ── Products table ── */
   .product-row {
@@ -241,62 +251,71 @@
         <span class="badge branch" id="branch-badge">branch: —</span>
       </div>
     </div>
+    <a class="account-link" id="account-link" href="/login">Sign in</a>
   </div>
 
-  <div class="prompt">
-    <span class="ps1">shop-web $</span>
-    <span class="cmd"> fetch /api/products</span>
-  </div>
-
-  <!-- Customer login -->
-  <section class="card" aria-labelledby="auth-title">
-    <div class="card-header">
-      <span class="icon">👤</span>
-      <span class="label" id="auth-title">CUSTOMER ACCOUNT</span>
-      <span id="auth-state" class="status spin" style="margin-left:auto">checking</span>
+  <main id="shop-view">
+    <div class="prompt">
+      <span class="ps1">shop-web $</span>
+      <span class="cmd"> fetch /api/products</span>
     </div>
-    <div class="card-body">
-      <form class="auth-form" id="login-form" hidden>
-        <label for="login-email">Email address
-          <input id="login-email" name="email" type="email" autocomplete="username" maxlength="254" required>
-        </label>
-        <label for="login-password">Password
-          <input id="login-password" name="password" type="password" autocomplete="current-password" required>
-        </label>
-        <button id="login-button" type="submit">Sign in</button>
-      </form>
-      <div class="auth-session" id="auth-session" hidden>
-        <span id="signed-in-customer"></span>
-        <button id="logout-button" type="button">Sign out</button>
+
+    <!-- Products -->
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">📦</span>
+        <span class="label">PRODUCTS</span>
+        <span id="product-status" class="status spin" style="margin-left:auto">loading</span>
       </div>
-      <p class="auth-message" id="auth-message" role="status" aria-live="polite">Checking your sign-in status…</p>
+      <div class="card-body" id="products"></div>
     </div>
-  </section>
 
-  <!-- Products -->
-  <div class="card">
-    <div class="card-header">
-      <span class="icon">📦</span>
-      <span class="label">PRODUCTS</span>
-      <span id="product-status" class="status spin" style="margin-left:auto">loading</span>
-    </div>
-    <div class="card-body" id="products"></div>
-  </div>
-
-  <!-- Wiring -->
-  <div class="card">
-    <div class="card-header">
-      <span class="icon">🔌</span>
-      <span class="label">WIRING</span>
-    </div>
-    <div class="card-body">
-      <div class="info-grid">
-        <span class="key">api_url</span>  <span class="val"><code id="api">—</code></span>
-        <span class="key">backend</span>  <span class="val" id="backend"><span class="status spin">connecting</span></span>
+    <!-- Wiring -->
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">🔌</span>
+        <span class="label">WIRING</span>
       </div>
+      <div class="card-body">
+        <div class="info-grid">
+          <span class="key">api_url</span>  <span class="val"><code id="api">—</code></span>
+          <span class="key">backend</span>  <span class="val" id="backend"><span class="status spin">connecting</span></span>
+        </div>
+      </div>
+      <div class="hint">network error? open the API URL once and accept the self-signed cert</div>
     </div>
-    <div class="hint">network error? open the API URL once and accept the self-signed cert</div>
-  </div>
+  </main>
+
+  <main id="login-view" hidden>
+    <a class="back-link" href="/">← Back to shop</a>
+    <div class="prompt">
+      <span class="ps1">shop-web $</span>
+      <span class="cmd"> sign in</span>
+    </div>
+    <section class="card" aria-labelledby="auth-title">
+      <div class="card-header">
+        <span class="icon">👤</span>
+        <span class="label" id="auth-title">CUSTOMER SIGN IN</span>
+        <span id="auth-state" class="status spin" style="margin-left:auto">checking</span>
+      </div>
+      <div class="card-body">
+        <form class="auth-form" id="login-form" hidden>
+          <label for="login-email">Email address
+            <input id="login-email" name="email" type="email" autocomplete="username" maxlength="254" required>
+          </label>
+          <label for="login-password">Password
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <button id="login-button" type="submit">Sign in</button>
+        </form>
+        <div class="auth-session" id="auth-session" hidden>
+          <span id="signed-in-customer"></span>
+          <button id="logout-button" type="button">Sign out</button>
+        </div>
+        <p class="auth-message" id="auth-message" role="status" aria-live="polite">Checking your sign-in status…</p>
+      </div>
+    </section>
+  </main>
 
 </div>
 
@@ -304,28 +323,39 @@
   const E = window.__ENV__ || {};
   const $ = id => document.getElementById(id);
   const API_BASE = (E.API_URL || '').replace(/\/+$/, '');
+  const loginPage = window.location.pathname.replace(/\/+$/, '') === '/login';
+  $('shop-view').hidden = loginPage;
+  $('login-view').hidden = !loginPage;
+  $('account-link').hidden = loginPage;
+  if (loginPage) document.title = 'Sign in · Shop Console';
 
   $('env-badge').textContent    = 'env: '    + (E.APP_ENV    || '—');
   $('branch-badge').textContent = 'branch: ' + (E.GIT_BRANCH || '—');
   $('api').textContent          = E.API_URL  || '(none)';
 
   function showSignedOut(message, isError = false) {
-    $('auth-form').hidden = false;
-    $('auth-session').hidden = true;
-    $('auth-state').className = 'status';
-    $('auth-state').textContent = 'signed out';
-    $('auth-message').textContent = message;
-    $('auth-message').className = 'auth-message' + (isError ? ' error' : '');
+    $('account-link').textContent = 'Sign in';
+    if (loginPage) {
+      $('login-form').hidden = false;
+      $('auth-session').hidden = true;
+      $('auth-state').className = 'status';
+      $('auth-state').textContent = 'signed out';
+      $('auth-message').textContent = message;
+      $('auth-message').className = 'auth-message' + (isError ? ' error' : '');
+    }
   }
 
   function showSignedIn(customer) {
-    $('auth-form').hidden = true;
-    $('auth-session').hidden = false;
-    $('signed-in-customer').textContent = 'Signed in as ' + customer.email;
-    $('auth-state').className = 'status ok';
-    $('auth-state').textContent = 'signed in';
-    $('auth-message').textContent = '';
-    $('auth-message').className = 'auth-message';
+    $('account-link').textContent = customer.email;
+    if (loginPage) {
+      $('login-form').hidden = true;
+      $('auth-session').hidden = false;
+      $('signed-in-customer').textContent = 'Signed in as ' + customer.email;
+      $('auth-state').className = 'status ok';
+      $('auth-state').textContent = 'signed in';
+      $('auth-message').textContent = '';
+      $('auth-message').className = 'auth-message';
+    }
   }
 
   async function readAuthResponse(response) {
@@ -341,7 +371,7 @@
   async function restoreSession() {
     if (!API_BASE) {
       showSignedOut('Sign-in is unavailable because the API is not configured.', true);
-      $('login-button').disabled = true;
+      if (loginPage) $('login-button').disabled = true;
       return;
     }
     try {
@@ -359,7 +389,7 @@
     }
   }
 
-  $('login-form').addEventListener('submit', async event => {
+  if (loginPage) $('login-form').addEventListener('submit', async event => {
     event.preventDefault();
     const button = $('login-button');
     const message = $('auth-message');
@@ -395,7 +425,7 @@
     }
   });
 
-  $('logout-button').addEventListener('click', async () => {
+  if (loginPage) $('logout-button').addEventListener('click', async () => {
     const button = $('logout-button');
     button.disabled = true;
     $('auth-message').textContent = 'Signing out…';
@@ -420,11 +450,11 @@
 
   restoreSession();
 
-  if (!E.API_URL) {
+  if (!E.API_URL && !loginPage) {
     $('products').innerHTML = '<div class="product-row"><span class="status err">No API_URL — is shop-api deployed?</span></div>';
     $('product-status').className = 'status err';
     $('product-status').textContent = 'error';
-  } else {
+  } else if (E.API_URL && !loginPage) {
     fetch(E.API_URL + '/api/products')
       .then(r => r.json())
       .then(items => {
