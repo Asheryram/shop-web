@@ -111,6 +111,37 @@
 
   .card-body { padding: 12px 16px; }
 
+  /* ── Customer sign-in ── */
+  .auth-form { display: grid; gap: 10px; }
+  .auth-form label { color: var(--muted); font-size: 12px; }
+  .auth-form input {
+    width: 100%;
+    margin-top: 4px;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+  }
+  .auth-form input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  .auth-form button, .auth-session button {
+    justify-self: start;
+    padding: 8px 12px;
+    border: 1px solid var(--accent);
+    border-radius: 5px;
+    background: #13243a;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+  }
+  .auth-form button:disabled, .auth-session button:disabled { opacity: .6; cursor: wait; }
+  .auth-message { min-height: 20px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .auth-message.error { color: var(--warn); }
+  .auth-message.success { color: var(--accent2); }
+  .auth-session { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .auth-session[hidden], .auth-form[hidden] { display: none; }
+
   /* ── Products table ── */
   .product-row {
     display: flex;
@@ -217,6 +248,31 @@
     <span class="cmd"> fetch /api/products</span>
   </div>
 
+  <!-- Customer login -->
+  <section class="card" aria-labelledby="auth-title">
+    <div class="card-header">
+      <span class="icon">👤</span>
+      <span class="label" id="auth-title">CUSTOMER ACCOUNT</span>
+      <span id="auth-state" class="status spin" style="margin-left:auto">checking</span>
+    </div>
+    <div class="card-body">
+      <form class="auth-form" id="login-form" hidden>
+        <label for="login-email">Email address
+          <input id="login-email" name="email" type="email" autocomplete="username" maxlength="254" required>
+        </label>
+        <label for="login-password">Password
+          <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button id="login-button" type="submit">Sign in</button>
+      </form>
+      <div class="auth-session" id="auth-session" hidden>
+        <span id="signed-in-customer"></span>
+        <button id="logout-button" type="button">Sign out</button>
+      </div>
+      <p class="auth-message" id="auth-message" role="status" aria-live="polite">Checking your sign-in status…</p>
+    </div>
+  </section>
+
   <!-- Products -->
   <div class="card">
     <div class="card-header">
@@ -247,10 +303,122 @@
 <script>
   const E = window.__ENV__ || {};
   const $ = id => document.getElementById(id);
+  const API_BASE = (E.API_URL || '').replace(/\/+$/, '');
 
   $('env-badge').textContent    = 'env: '    + (E.APP_ENV    || '—');
   $('branch-badge').textContent = 'branch: ' + (E.GIT_BRANCH || '—');
   $('api').textContent          = E.API_URL  || '(none)';
+
+  function showSignedOut(message, isError = false) {
+    $('auth-form').hidden = false;
+    $('auth-session').hidden = true;
+    $('auth-state').className = 'status';
+    $('auth-state').textContent = 'signed out';
+    $('auth-message').textContent = message;
+    $('auth-message').className = 'auth-message' + (isError ? ' error' : '');
+  }
+
+  function showSignedIn(customer) {
+    $('auth-form').hidden = true;
+    $('auth-session').hidden = false;
+    $('signed-in-customer').textContent = 'Signed in as ' + customer.email;
+    $('auth-state').className = 'status ok';
+    $('auth-state').textContent = 'signed in';
+    $('auth-message').textContent = '';
+    $('auth-message').className = 'auth-message';
+  }
+
+  async function readAuthResponse(response) {
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new Error('The authentication service returned an invalid response.');
+    }
+    return { response, payload };
+  }
+
+  async function restoreSession() {
+    if (!API_BASE) {
+      showSignedOut('Sign-in is unavailable because the API is not configured.', true);
+      $('login-button').disabled = true;
+      return;
+    }
+    try {
+      const { response, payload } = await readAuthResponse(await fetch(API_BASE + '/api/auth/session', {
+        credentials: 'include'
+      }));
+      if (!response.ok) throw new Error('The authentication service is unavailable. Try again later.');
+      if (payload.authenticated && payload.customer && typeof payload.customer.email === 'string') {
+        showSignedIn(payload.customer);
+      } else {
+        showSignedOut('Sign in with your customer account.');
+      }
+    } catch {
+      showSignedOut('Could not check your sign-in status. You can try signing in again.', true);
+    }
+  }
+
+  $('login-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = $('login-button');
+    const message = $('auth-message');
+    button.disabled = true;
+    $('auth-state').className = 'status spin';
+    $('auth-state').textContent = 'checking';
+    message.textContent = 'Checking credentials…';
+    message.className = 'auth-message';
+    try {
+      const { response, payload } = await readAuthResponse(await fetch(API_BASE + '/api/auth/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: $('login-email').value,
+          password: $('login-password').value
+        })
+      }));
+      if (response.status === 401) {
+        showSignedOut('Invalid email or password. Please try again.', true);
+      } else if (!response.ok) {
+        showSignedOut('Sign-in is temporarily unavailable. Please try again.', true);
+      } else if (payload.authenticated && payload.customer && typeof payload.customer.email === 'string') {
+        $('login-password').value = '';
+        showSignedIn(payload.customer);
+      } else {
+        showSignedOut('Sign-in could not be completed. Please try again.', true);
+      }
+    } catch {
+      showSignedOut('Could not reach the authentication service. Check your connection and try again.', true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  $('logout-button').addEventListener('click', async () => {
+    const button = $('logout-button');
+    button.disabled = true;
+    $('auth-message').textContent = 'Signing out…';
+    $('auth-message').className = 'auth-message';
+    try {
+      const { response, payload } = await readAuthResponse(await fetch(API_BASE + '/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      }));
+      if (!response.ok || payload.authenticated !== false) {
+        throw new Error('Sign-out failed.');
+      }
+      $('login-password').value = '';
+      showSignedOut('You have been signed out.');
+    } catch {
+      $('auth-message').textContent = 'Could not sign out. Please try again.';
+      $('auth-message').className = 'auth-message error';
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  restoreSession();
 
   if (!E.API_URL) {
     $('products').innerHTML = '<div class="product-row"><span class="status err">No API_URL — is shop-api deployed?</span></div>';
