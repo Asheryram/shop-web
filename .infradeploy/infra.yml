@@ -1,0 +1,12 @@
+# How the infra platform runs this repo. One entry per independently deployed service.
+name: shop-web
+
+services:
+  # Frontend → shop-web.<domain> (previews: shop-web-pr-N.<domain>)
+  web:
+    # On a real server with GitHub: ghcr.io/<owner>/shop-web — locally: images are built on the server itself.
+    image: local/shop-web
+    port: 80
+    health_path: /healthz
+    # No auto-linking: set API_URL for each environment in the console (Variables), like any other variable.
+    # The browser only sees keys listed in RUNTIME_ENV_KEYS (.infradeploy/env/common.env).
