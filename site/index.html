@@ -3,50 +3,542 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shop</title>
-<!-- Written at container start by the platform: API_URL, APP_ENV, GIT_BRANCH… (never secrets) -->
+<title>Shop Console</title>
 <script src="/env.js"></script>
 <style>
-  body { font: 15px/1.5 system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1d2330; }
-  h1 { margin-bottom: 4px; } .sub { color: #667085; margin-top: 0; }
-  .card { border: 1px solid #e4e7ec; border-radius: 10px; padding: 14px 18px; margin: 16px 0; }
-  .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f2f4f7; }
-  .row:last-child { border-bottom: 0; }
-  code { background: #f2f4f7; padding: 1px 6px; border-radius: 4px; font-size: 13px; }
-  .bad { color: #f04438; } .muted { color: #667085; font-size: 13px; }
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --warn: #f85149;
+    --muted: #8b949e;
+    --text: #e6edf3;
+    --tag-bg: #1f2937;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.6 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    min-height: 100vh;
+    padding: 32px 16px;
+  }
+
+  .shell {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dot-row { display: flex; gap: 6px; }
+  .dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+  }
+  .dot.red   { background: #ff5f57; }
+  .dot.yellow{ background: #febc2e; }
+  .dot.green { background: #28c840; }
+
+  .title-block { flex: 1; }
+
+  .title-block h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    color: var(--text);
+  }
+
+  .title-block h1 span { color: var(--accent); }
+
+  .badges { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+
+  .badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    background: var(--tag-bg);
+  }
+
+  .badge.env  { border-color: var(--accent);  color: var(--accent); }
+  .badge.branch { border-color: #bc8cff; color: #bc8cff; }
+  .account-link {
+    border: 1px solid var(--accent);
+    border-radius: 5px;
+    padding: 6px 10px;
+    color: var(--accent);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  /* ── Prompt line ── */
+  .prompt {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 20px;
+  }
+  .prompt .ps1 { color: var(--accent2); }
+  .prompt .cmd { color: var(--text); }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    background: #0d1117;
+  }
+
+  .card-header .icon { font-size: 14px; }
+  .card-header .label { color: var(--text); font-weight: 600; letter-spacing: .4px; }
+
+  .card-body { padding: 12px 16px; }
+
+  /* ── Customer sign-in ── */
+  .auth-form { display: grid; gap: 10px; }
+  .auth-form label { color: var(--muted); font-size: 12px; }
+  .auth-form input {
+    width: 100%;
+    margin-top: 4px;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+  }
+  .auth-form input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  .auth-form button, .auth-session button {
+    justify-self: start;
+    padding: 8px 12px;
+    border: 1px solid var(--accent);
+    border-radius: 5px;
+    background: #13243a;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+  }
+  .auth-form .auth-mode-toggle {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    text-align: left;
+    text-decoration: underline;
+  }
+  .auth-form button:disabled, .auth-session button:disabled { opacity: .6; cursor: wait; }
+  .auth-message { min-height: 20px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .auth-message.error { color: var(--warn); }
+  .auth-message.success { color: var(--accent2); }
+  .auth-session { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .auth-session[hidden], .auth-form[hidden] { display: none; }
+  .back-link { display: inline-block; margin-bottom: 16px; color: var(--accent); }
+  #login-view[hidden], #shop-view[hidden] { display: none; }
+
+  /* ── Products table ── */
+  .product-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    animation: fadeIn .3s ease both;
+  }
+  .product-row:last-child { border-bottom: 0; }
+
+  .product-row .name::before {
+    content: '▸ ';
+    color: var(--accent);
+    font-size: 11px;
+  }
+
+  .product-row .price {
+    color: var(--accent2);
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  /* ── Info grid ── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 16px;
+    font-size: 12px;
+  }
+
+  .info-grid .key { color: var(--muted); }
+  .info-grid .val { color: var(--text); }
+
+  code {
+    background: var(--tag-bg);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: inherit;
+    color: var(--accent);
+  }
+
+  /* ── Status indicators ── */
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+  }
+  .status::before {
+    content: '';
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .status.ok::before   { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+  .status.err::before  { background: var(--warn);    box-shadow: 0 0 6px var(--warn); }
+  .status.spin::before { background: var(--accent);  animation: pulse 1s infinite; }
+
+  /* ── Hint ── */
+  .hint {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .hint::before { content: '# '; color: var(--border); }
+
+  /* ── Animations ── */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .3; }
+  }
 </style>
 </head>
 <body>
-<h1>Shop</h1>
-<p class="sub">frontend <code id="env"></code> on branch <code id="branch"></code></p>
+<div class="shell">
 
-<div class="card"><b>Products</b><div id="products" class="muted">loading…</div></div>
+  <!-- Window chrome -->
+  <div class="header">
+    <div class="dot-row">
+      <div class="dot red"></div>
+      <div class="dot yellow"></div>
+      <div class="dot green"></div>
+    </div>
+    <div class="title-block">
+      <h1>shop<span>://</span>console</h1>
+      <div class="badges">
+        <span class="badge env"  id="env-badge">env: —</span>
+        <span class="badge branch" id="branch-badge">branch: —</span>
+      </div>
+    </div>
+    <a class="account-link" id="account-link" href="/login">Sign in</a>
+  </div>
 
-<div class="card muted" id="wiring">
-  API: <code id="api"></code><br>
-  Backend: <span id="backend">…</span>
+  <main id="shop-view">
+    <div class="prompt">
+      <span class="ps1">shop-web $</span>
+      <span class="cmd"> fetch /api/products</span>
+    </div>
+
+    <!-- Products -->
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">📦</span>
+        <span class="label">PRODUCTS</span>
+        <span id="product-status" class="status spin" style="margin-left:auto">loading</span>
+      </div>
+      <div class="card-body" id="products"></div>
+    </div>
+
+    <!-- Wiring -->
+    <div class="card">
+      <div class="card-header">
+        <span class="icon">🔌</span>
+        <span class="label">WIRING</span>
+      </div>
+      <div class="card-body">
+        <div class="info-grid">
+          <span class="key">api_url</span>  <span class="val"><code id="api">—</code></span>
+          <span class="key">backend</span>  <span class="val" id="backend"><span class="status spin">connecting</span></span>
+        </div>
+      </div>
+      <div class="hint">network error? open the API URL once and accept the self-signed cert</div>
+    </div>
+  </main>
+
+  <main id="login-view" hidden>
+    <a class="back-link" href="/">← Back to shop</a>
+    <div class="prompt">
+      <span class="ps1">shop-web $</span>
+      <span class="cmd"> sign in</span>
+    </div>
+    <section class="card" aria-labelledby="auth-title">
+      <div class="card-header">
+        <span class="icon">👤</span>
+        <span class="label" id="auth-title">CUSTOMER SIGN IN</span>
+        <span id="auth-state" class="status spin" style="margin-left:auto">checking</span>
+      </div>
+      <div class="card-body">
+        <form class="auth-form" id="login-form" hidden>
+          <label for="login-email">Email address
+            <input id="login-email" name="email" type="email" autocomplete="username" maxlength="254" required>
+          </label>
+          <label for="login-password">Password
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <label id="confirm-password-field" for="confirm-password" hidden>Confirm password
+            <input id="confirm-password" name="confirm-password" type="password" autocomplete="new-password" disabled>
+          </label>
+          <button id="login-button" type="submit">Sign in</button>
+          <button class="auth-mode-toggle" id="auth-mode-toggle" type="button">Need an account? Create one</button>
+        </form>
+        <div class="auth-session" id="auth-session" hidden>
+          <span id="signed-in-customer"></span>
+          <button id="logout-button" type="button">Sign out</button>
+        </div>
+        <p class="auth-message" id="auth-message" role="status" aria-live="polite">Checking your sign-in status…</p>
+      </div>
+    </section>
+  </main>
+
 </div>
-<p class="muted">Network error? Open the API URL once in this browser and accept its certificate (self-signed locally).</p>
 
 <script>
   const E = window.__ENV__ || {};
   const $ = id => document.getElementById(id);
-  $('env').textContent = E.APP_ENV || '—';
-  $('branch').textContent = E.GIT_BRANCH || '—';
-  $('api').textContent = E.API_URL || '(none)';
+  const API_BASE = (E.API_URL || '').replace(/\/+$/, '');
+  const loginPage = window.location.pathname.replace(/\/+$/, '') === '/login';
+  let authMode = 'login';
+  $('shop-view').hidden = loginPage;
+  $('login-view').hidden = !loginPage;
+  $('account-link').hidden = loginPage;
+  if (loginPage) document.title = 'Sign in · Shop Console';
 
-  if (!E.API_URL) {
-    $('products').innerHTML = '<span class="bad">No API_URL — is shop-api deployed?</span>';
-  } else {
-    fetch(E.API_URL + '/api/products').then(r => r.json()).then(items => {
-      $('products').innerHTML = items.map(p =>
-        `<div class="row"><span>${p.name}</span><span>€ ${p.price.toFixed(2)}</span></div>`).join('');
-    }).catch(e => $('products').innerHTML = `<span class="bad">${e.message}</span>`);
+  $('env-badge').textContent    = 'env: '    + (E.APP_ENV    || '—');
+  $('branch-badge').textContent = 'branch: ' + (E.GIT_BRANCH || '—');
+  $('api').textContent          = E.API_URL  || '(none)';
 
-    fetch(E.API_URL + '/').then(r => r.json()).then(b => {
-      $('backend').innerHTML = `shop-api ${b.version} · env <code>${b.env}</code> · branch <code>${b.branch}</code>`
-        + ` · database <code>${b.database.ok ? b.database.name : 'ERROR'}</code>`;
-    }).catch(() => $('backend').innerHTML = '<span class="bad">unreachable</span>');
+  function setAuthMode(mode) {
+    authMode = mode;
+    const registering = mode === 'register';
+    $('auth-title').textContent = registering ? 'CREATE CUSTOMER ACCOUNT' : 'CUSTOMER SIGN IN';
+    $('login-button').textContent = registering ? 'Create account' : 'Sign in';
+    $('auth-mode-toggle').textContent = registering
+      ? 'Already have an account? Sign in'
+      : 'Need an account? Create one';
+    $('confirm-password-field').hidden = !registering;
+    $('confirm-password').disabled = !registering;
+    $('confirm-password').required = registering;
+    $('login-password').autocomplete = registering ? 'new-password' : 'current-password';
+    $('login-password').minLength = registering ? 12 : 0;
+    $('auth-message').textContent = registering
+      ? 'Create an account with a password of at least 12 characters.'
+      : 'Sign in with your customer account.';
+    $('auth-message').className = 'auth-message';
+  }
+
+  function showSignedOut(message, isError = false) {
+    $('account-link').textContent = 'Sign in';
+    if (loginPage) {
+      $('login-form').hidden = false;
+      $('auth-session').hidden = true;
+      $('auth-state').className = 'status';
+      $('auth-state').textContent = 'signed out';
+      $('auth-message').textContent = message;
+      $('auth-message').className = 'auth-message' + (isError ? ' error' : '');
+    }
+  }
+
+  function showSignedIn(customer) {
+    $('account-link').textContent = customer.email;
+    if (loginPage) {
+      $('login-form').hidden = true;
+      $('auth-session').hidden = false;
+      $('signed-in-customer').textContent = 'Signed in as ' + customer.email;
+      $('auth-state').className = 'status ok';
+      $('auth-state').textContent = 'signed in';
+      $('auth-message').textContent = '';
+      $('auth-message').className = 'auth-message';
+    }
+  }
+
+  async function readAuthResponse(response) {
+    let payload;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new Error('The authentication service returned an invalid response.');
+    }
+    return { response, payload };
+  }
+
+  async function restoreSession() {
+    if (!API_BASE) {
+      showSignedOut('Sign-in is unavailable because the API is not configured.', true);
+      if (loginPage) $('login-button').disabled = true;
+      return;
+    }
+    try {
+      const { response, payload } = await readAuthResponse(await fetch(API_BASE + '/api/auth/session', {
+        credentials: 'include'
+      }));
+      if (!response.ok) throw new Error('The authentication service is unavailable. Try again later.');
+      if (payload.authenticated && payload.customer && typeof payload.customer.email === 'string') {
+        showSignedIn(payload.customer);
+      } else {
+        showSignedOut('Sign in with your customer account.');
+      }
+    } catch {
+      showSignedOut('Could not check your sign-in status. You can try signing in again.', true);
+    }
+  }
+
+  if (loginPage) $('login-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const registering = authMode === 'register';
+    if (registering && $('login-password').value !== $('confirm-password').value) {
+      showSignedOut('The passwords do not match. Please try again.', true);
+      return;
+    }
+    const button = $('login-button');
+    const message = $('auth-message');
+    button.disabled = true;
+    $('auth-state').className = 'status spin';
+    $('auth-state').textContent = 'checking';
+    message.textContent = 'Checking credentials…';
+    message.className = 'auth-message';
+    try {
+      const { response, payload } = await readAuthResponse(await fetch(
+        API_BASE + (registering ? '/api/auth/register' : '/api/auth/login'),
+        {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: $('login-email').value,
+          password: $('login-password').value
+        })
+      }));
+      if (registering && response.status === 409) {
+        showSignedOut('An account with this email already exists. Sign in instead.', true);
+      } else if (!registering && response.status === 401) {
+        showSignedOut('Invalid email or password. Please try again.', true);
+      } else if (!response.ok) {
+        showSignedOut(
+          registering ? 'Account creation is temporarily unavailable. Please try again.' :
+            'Sign-in is temporarily unavailable. Please try again.',
+          true
+        );
+      } else if (payload.authenticated && payload.customer && typeof payload.customer.email === 'string') {
+        $('login-password').value = '';
+        $('confirm-password').value = '';
+        showSignedIn(payload.customer);
+      } else {
+        showSignedOut(
+          registering ? 'Account creation could not be completed. Please try again.' :
+            'Sign-in could not be completed. Please try again.',
+          true
+        );
+      }
+    } catch {
+      showSignedOut('Could not reach the authentication service. Check your connection and try again.', true);
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  if (loginPage) $('auth-mode-toggle').addEventListener('click', () => {
+    setAuthMode(authMode === 'login' ? 'register' : 'login');
+  });
+
+  if (loginPage) $('logout-button').addEventListener('click', async () => {
+    const button = $('logout-button');
+    button.disabled = true;
+    $('auth-message').textContent = 'Signing out…';
+    $('auth-message').className = 'auth-message';
+    try {
+      const { response, payload } = await readAuthResponse(await fetch(API_BASE + '/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      }));
+      if (!response.ok || payload.authenticated !== false) {
+        throw new Error('Sign-out failed.');
+      }
+      $('login-password').value = '';
+      showSignedOut('You have been signed out.');
+    } catch {
+      $('auth-message').textContent = 'Could not sign out. Please try again.';
+      $('auth-message').className = 'auth-message error';
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  restoreSession();
+
+  if (!E.API_URL && !loginPage) {
+    $('products').innerHTML = '<div class="product-row"><span class="status err">No API_URL — is shop-api deployed?</span></div>';
+    $('product-status').className = 'status err';
+    $('product-status').textContent = 'error';
+  } else if (E.API_URL && !loginPage) {
+    fetch(E.API_URL + '/api/products')
+      .then(r => r.json())
+      .then(items => {
+        $('products').innerHTML = items.map(p =>
+          `<div class="product-row">
+             <span class="name">${p.name}</span>
+             <span class="price">€ ${p.price.toFixed(2)}</span>
+           </div>`
+        ).join('');
+        $('product-status').className = 'status ok';
+        $('product-status').textContent = items.length + ' items';
+      })
+      .catch(e => {
+        $('products').innerHTML = `<div class="product-row"><span class="status err">${e.message}</span></div>`;
+        $('product-status').className = 'status err';
+        $('product-status').textContent = 'failed';
+      });
+
+    fetch(E.API_URL + '/')
+      .then(r => r.json())
+      .then(b => {
+        const db = b.database.ok
+          ? `<span class="status ok"><code>${b.database.name}</code></span>`
+          : `<span class="status err">db error</span>`;
+        $('backend').innerHTML =
+          `shop-api <code>${b.version}</code> &nbsp;·&nbsp; env <code>${b.env}</code> &nbsp;·&nbsp; branch <code>${b.branch}</code> &nbsp;·&nbsp; db ${db}`;
+      })
+      .catch(() => {
+        $('backend').innerHTML = '<span class="status err">unreachable</span>';
+      });
   }
 </script>
 </body>
